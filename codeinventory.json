@@ -1,0 +1,309 @@
+{
+  "name": "RBEROST",
+  "description": "Contains code files for running the River Basin Export Reduction Optimization Support Tool (RBEROST). Contains data for a case study in the Upper Connecticut River basin",
+  "name": ".gitignore",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/.gitignore",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],  
+  "name": "RBEROST-User-Guide.pdf",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/RBEROST-User-Guide.pdf",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "README.md",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/README.md",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "RunRBEROST.Rmd",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/RunRBEROST.Rmd",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "RBEROST.Rproj",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/RBEROST.Rproj",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "RBEROSTdemo_nouncertainty.txt",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Postprocessing/Inputs/RBEROSTdemo_uncertainty.txt",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "RBEROSTdemo_uncertainty.txt",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Postprocessing/Inputs/RBEROSTdemo_uncertainty.txt",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "01_UserSpecs_BMPs.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/01_UserSpecs_BMPs.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "01_UserSpecs_loadingtargets.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/01_UserSpecs_loadingtargets.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "ACRE_HUC12_HRU_Summary.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/ACRE_HUC12_HRU_Summary.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "AgBMPEffic_FertManure.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/AgBMPEffic_FertManure.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "EQIPcosts_overyears.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/EQIPcosts_overyears.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "LengthinBuffer_2016.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/LengthinBuffer_2016.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "NHD+infiltrationrates.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/NHD%2Binfiltrationrates.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+    ],
+  "name": "NH_streamcat_2011_cropland.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/NH_streamcat_2011_cropland.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "NH_streamcat_2011_imperv.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/NH_streamcat_2011_imperv.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "NdepChange_2012_2019.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/NdepChange_2012_2019.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "RiparianEfficiencies.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/RiparianEfficiencies.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "RiparianLoadings.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/RiparianLoadings.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "UrbanBMPPerformanceCurves.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/UrbanBMPPerformanceCurves.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "VT_streamcat_2011_cropland.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/VT_streamcat_2011_cropland.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "VT_streamcat_2011_imperv.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/VT_streamcat_2011_imperv.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "WWTP_BaselineRemoval_Finergrain.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/WWTP_BaselineRemoval_Finergrain.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "WWTP_COMIDs.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/WWTP_COMIDs.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "WWTP_COMIDs_BslnRemoval.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/WWTP_COMIDs_BslnRemoval.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "WWTP_RemovalEffic.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/WWTP_RemovalEffic.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "ne_sparrow_model_input.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/ne_sparrow_model_input.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "ne_sparrow_model_output_tn.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/ne_sparrow_model_output_tn.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "ne_sparrow_model_output_tp.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/ne_sparrow_model_output_tp.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "STcommand.amp",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Outputs/STcommand.amp",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "STcommand_uncertainty.amp",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Outputs/STcommand_uncertainty.amp",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "STdata.dat",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Outputs/STdata.dat",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "STdata_uncertainty.dat",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Outputs/STdata_uncertainty.dat",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "STmodel.mod",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Outputs/STmodel.mod",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "STmodel_uncertainty.mod",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Outputs/STmodel_uncertainty.mod",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "01_Optimization_Preprocessing+Uncertainty.R",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/R/01_Optimization_Preprocessing%2BUncertainty.R",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "01_Optimization_Preprocessing.R"
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/R/01_Optimization_Preprocessing.R",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "01_Optimization_Preprocessing_gateway.R"
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/R/01_Optimization_Preprocessing_gateway.R",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "02_Optimization_RunShiny.R"
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/R/02_Optimization_RunShiny.R",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "Optimization_HelperFunctions.R"
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/R/Optimization_HelperFunctions.R",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "Optimization_ServerFile.R"
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/R/Optimization_ServerFile.R",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "Optimization_UI_Postprocessor.R"
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/R/Optimization_UI_Postprocessor.R",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "Optimization_UserInterfaceFile.R"
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/R/Optimization_UserInterfaceFile.R",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "contact": {
+    "email": "detenbeck.naomi@epa.gov"
+  }
+}

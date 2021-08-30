@@ -1,0 +1,17 @@
+#WMOST Optimization Screening Tool AMPL command file
+solve;
+option display_precision 10;
+option presolve_warnings -1;
+display solve_result_num, solve_result;
+display cost.result;
+display cost;
+option display_1col 10000000000;
+option display_width 100000000000;
+option display_transpose -10000;
+option omit_zero_rows 1;
+option omit_zero_cols 1;
+display point_dec;
+option display_1col 0;
+display urban_frac;
+display ag_frac;
+display ripbuf_length;

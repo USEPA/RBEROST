@@ -1,0 +1,4 @@
+Waterbody_Name,ComID,Watershed_HUC,Percent_Reduction,TN_or_TP,OutofNetworkFlag_X,TermFlag_X
+CT River at MA border,9332552,10801,0.1,TN,,X
+Back Lake (NHLAK801010203-01-01),4592401,10801010203,0.12,TP,,
+Forest Lake  (NHLAK802010401-01-01),4594723,10801030101,0.02,TP,,

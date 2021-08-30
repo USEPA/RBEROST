@@ -1,0 +1,73 @@
+---
+title: "Run RBEROST"
+date: "5/6/2021"
+output: html_document
+---
+
+## Copyright Information and Disclaimers
+
+Copyright (C) 2021  US EP
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+This program contains contributions from ICF under contract to US EPA. The Agency has unlimited rights to all custom-developed code produced. The development of this program was supported in part by an appointment to the U.S. Environmental Protection Agency (EPA) Research Participation Program administered by the Oak Ridge Institute for Science and Education (ORISE) through an interagency agreement between the U.S. Department of Energy (DOE) and the U.S. Environmental Protection Agency. ORISE is managed by ORAU under DOE contract number DE-SC0014664. All comments expressed in this source code are the author's and do not necessarily reflect the policies and views of US EPA, DOE, or ORAU/ORISE.
+
+
+## Configure R
+
+This code only needs to be run once, the first time you run RBEROST. It will install several R packages that RBEROST uses. Once run, you will not need to run this code again unless you update R, RStudio, or there are problems with installation. To run the code, click the green triangle below. If no green arrow appears, and instead there is a red square, click the red square to stop any ongoing processes and a green triangle should appear in its place. When clicked, the green triangle will turn into a red square until the code is finished.
+
+```{r configureR}
+
+packages <- c("tidyverse", "reshape2", "data.table", "stringr", "foreach", "shiny", "shinycssloaders", "tidygraph", "bit64")
+invisible(lapply(packages, install.packages))
+
+```
+
+## Run Preprocessor
+
+To run the preprocessor, change any lines of code necessary and click the green triangle below. If no green arrow appears, and instead there is a red square, click the red square to stop any ongoing processes and a green triangle should appear in its place. When clicked, the green triangle will turn into a red square until the code is finished.
+
+```{r runpreprocessor}
+
+# This variable represents the location of input data files used to develop AMPL model files. If you opened RBEROST through the Tier_1_Optimization-SSWR_5_3_2.Rproj file, the '.' represents the folder where the Tier_1_Optimization-SSWR_5_3_2.Rproj file is located. If you did not open this file through the R project you may need to write out the full path to your RBEROST inputs.
+InPath<-paste0("./Preprocessing/Inputs/")
+
+# This variable represents the location where AMPL model files will be printed for use on the NEOS server. If you opened RBEROST through the Tier_1_Optimization-SSWR_5_3_2.Rproj file, the '.' represents the folder where the Tier_1_Optimization-SSWR_5_3_2.Rproj file is located. If you did not open this file through the R project you may need to write out the full path to your RBEROST inputs.
+OutPath<-paste0("./Preprocessing/Outputs/")
+
+# This variable represents the planning horizon in terms of years. Default is 15.
+horizon <- 15
+
+# This variable represents to expected interest rate. Default is 0.03, or 3%.
+interest_rate <- 0.03
+
+# This variable decides if you will run RBEROST with or without uncertainty. It can be TRUE or FALSE. Running with uncertainty takes longer than running without.
+IncludeUncertainty <- TRUE
+
+# If running RBEROST with uncertainty, how many scenarios would you like to view? Default is 3.
+n.scenarios <- 3 
+
+# If running RBEROST with uncertainty, how different would you like the scenarios to be? Each scenario will be solved for loading limits that are a certain percentage lower than the previous. Default is 0.01, or 1%.
+scenariostepchange <- 0.01
+
+# ----- Do not change anything below this line -------
+
+source("./R/01_Optimization_Preprocessing_gateway.R", local = TRUE)
+```
+
+## Run Postprocessor
+
+To run the preprocessor, click the green triangle below. A window will pop up either in RStudio or in your default web browser. If no green arrow appears, and instead there is a red square, click the red square to stop any ongoing processes and a green triangle should appear in its place. When clicked, the green triangle will turn into a red square until the code is finished. Be aware that simply closing the browser window will not stop the Shiny app. You must also click the red square below if you wish to relaunch the app.
+
+```{r runpostprocessor}
+source("./R/02_Optimization_RunShiny.R", local = TRUE)
+```
