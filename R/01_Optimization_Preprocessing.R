@@ -131,16 +131,16 @@ sparrow_cons_out_tp <- fread(
 
 # StreamCat Land Use Data, 2011: https://www.epa.gov/national-aquatic-resource-surveys/streamcat 
 # Percent Cropland Data (NLCD2011)
-vt_cropland <- fread(paste(InPath,"VT_streamcat_2011_cropland.csv",sep="")) #*#
-nh_cropland <- fread(paste(InPath,"NH_streamcat_2011_cropland.csv",sep="")) #*#
+croplandfiles <- lapply(
+  str_subset(list.files(path = InPath, full.names = TRUE), "cropland"), fread
+)
+names(croplandfiles) <- str_subset(list.files(path = InPath), "cropland")
 
 # Percent Imperviousness Data (ImperviousSurfaces2011)
-vt_imperv <- fread(
-  paste(InPath,"VT_streamcat_2011_imperv.csv",sep=""), data.table = FALSE
-) #*#
-nh_imperv <- fread(
-  paste(InPath,"NH_streamcat_2011_imperv.csv",sep=""), data.table = FALSE
-) #*#
+impervfiles <- lapply(
+  str_subset(list.files(path = InPath, full.names = TRUE), "imperv"), fread
+)
+names(impervfiles) <- str_subset(list.files(path = InPath), "imperv")
 
 # Preprocessed Riparian Data
 riparian.loadings <- fread("./Preprocessing/Inputs/RiparianLoadings.csv")
@@ -158,15 +158,16 @@ riparian.efficiencies <- fread(
 # -------------Combine state-specific datasets-------------
 
 # Combine StreamCat land use and imperviouness datasets for associated states
-vt_cropland$StateAbbrev <- "VT" #*#
-nh_cropland$StateAbbrev <- "NH" #*#
 
-cropland <- rbind(vt_cropland, nh_cropland) #*#
+cropland <- imap_dfr(
+  croplandfiles, ~{return(.x %>% mutate(StateAbbrev = str_sub(.y, 1, 2)))}
+) %>% arrange(COMID, StateAbbrev) %>%
+  drop_na()
 
-vt_imperv$StateAbbrev <- "VT" #*#
-nh_imperv$StateAbbrev <- "NH" #*#
-
-imperv <- rbind(vt_imperv, nh_imperv) #*#
+imperv <- imap_dfr(
+  impervfiles, ~{return(.x %>% mutate(StateAbbrev = str_sub(.y, 1, 2)))}
+) %>% arrange(COMID, StateAbbrev) %>%
+  drop_na()
 
 
 # -------------Perform data modifications for all reaches-------------
@@ -247,7 +248,10 @@ temp_sparrow_area$inc_ac <- temp_sparrow_area$IncAreaKm2/km2_to_ac #*#
 temp_area <- merge(temp_sparrow_area, streamcat_crop,by=c("comid"),all.y=TRUE) # limits dataframe to the COMIDs available in state-specific streamcat datasets
 temp_area$ag_ac <- with(temp_area,(PctCrop2011Cat/100)*inc_ac) #*#
 
-area <- temp_area %>% select(c("comid","urban_ac","ag_ac"))
+area <- temp_area %>% 
+  select(c("comid","urban_ac","ag_ac")) %>% 
+  group_by(comid) %>%
+  summarize(urban_ac = mean(urban_ac), ag_ac = mean(ag_ac))
 area <- distinct(area) # Removes duplicates
 
 ### Specify the length of streambank already buffered
@@ -306,7 +310,7 @@ temp_runoffcoeff$runoffcoeff <- with(
 ) #*#
 
 runoffcoeff <- temp_runoffcoeff %>% select(c("comid", "runoffcoeff"))
-runoffcoeff <- distinct(runoffcoeff) # Removes duplicates
+runoffcoeff <- as.data.frame(distinct(runoffcoeff)) # Removes duplicates
 
 
 ### Remove temporary datasets
@@ -352,6 +356,8 @@ pore_pt_tp <- with(
 
 # Get list of upstream.comids
 # get_upstream_ComIDs source code is in Optimization_HelperFunctions.R
+
+print("RBEROST is now determining which reaches are included in the watersheds of the identified loading targets.")
 
 outofnetworkflags_tn <- with(
   user_specs_loadingtargets %>% filter(TN_or_TP == "TN"), 
@@ -411,6 +417,8 @@ upstream.comids_tp <- foreach(
   
 }
 
+print("RBEROST has now determined which reaches are included in each watershed.")
+
 
 # Limit dataframe to the COMIDs within the specified watershed
 reaches_all <- sparrow_in %>% 
@@ -424,20 +432,18 @@ reaches_all <- sparrow_in %>%
 
 ### Message regarding SPARROW/StreamCat mismatch
 
-streamcat_subset_all <- as.data.frame(
-  runoffcoeff[
-    runoffcoeff$comid %in% 
-      unique(unlist(c(upstream.comids_tn, upstream.comids_tp))), 
-  ]
-) %>%
+streamcat_subset_all <- as.data.frame(runoffcoeff)[
+  runoffcoeff$comid %in% 
+    unique(unlist(c(upstream.comids_tn, upstream.comids_tp))), 
+] %>%
   select(comid) %>%
   arrange(comid)
 
 streamcat_subset_tn <- foreach(i = 1:length(upstream.comids_tn)) %do% {
   
-  streamcat_subset_tn_tmp <- as.data.frame(
-    runoffcoeff[runoffcoeff$comid %in% upstream.comids_tn[[i]], ]
-  ) %>%
+  streamcat_subset_tn_tmp <- as.data.frame(runoffcoeff)[
+    runoffcoeff$comid %in% upstream.comids_tn[[i]], 
+  ] %>%
     select(comid) %>%
     arrange(comid)
   
@@ -447,9 +453,9 @@ streamcat_subset_tn <- foreach(i = 1:length(upstream.comids_tn)) %do% {
 
 streamcat_subset_tp <- foreach(i = 1:length(upstream.comids_tp)) %do% {
   
-  streamcat_subset_tp_tmp <- as.data.frame(
-    runoffcoeff[runoffcoeff$comid %in% upstream.comids_tp[[i]], ]
-  ) %>%
+  streamcat_subset_tp_tmp <- as.data.frame(runoffcoeff)[
+    runoffcoeff$comid %in% upstream.comids_tp[[i]], 
+  ] %>%
     select(comid) %>%
     arrange(comid)
   
@@ -463,7 +469,12 @@ Message.tn <- foreach(i = 1:length(upstream.comids_tn)) %do% {
     length(unique(upstream.comids_tn[[i]]))
   ) {
     Message.tmp <- paste(
-      "Note: There are more reaches in the Vermont and New Hampshire StreamCat",
+      paste0(
+        "Note: For the ", 
+        i, 
+        if(i == 1) {"st"} else if(i == 2) {"nd"} else {"st"}, 
+        " TN target, there are more reaches in the provided StreamCat"
+      ),
       "datasets than are included in SPARROW.", 
       "Only the reaches that are included in both datasets will be available",
       "for BMP optimization.Loads the remaining reaches will be included in", 
@@ -475,7 +486,12 @@ Message.tn <- foreach(i = 1:length(upstream.comids_tn)) %do% {
     length(unique(upstream.comids_tn[[i]]))
   ) {
     Message.tmp <- paste(
-      "Note: There are fewer reaches in the Vermont and New Hampshire",
+      paste0(
+        "Note: For the ", 
+        i, 
+        if(i == 1) {"st"} else if(i == 2) {"nd"} else {"st"}, 
+        " TN target, there are fewer reaches in the provided"
+      ),
       "StreamCat datasets than are included in SPARROW.", 
       "Only the reaches that are included in both datasets will be available",
       "for BMP optimization. Loads the remaining reaches will be included in",
@@ -484,7 +500,12 @@ Message.tn <- foreach(i = 1:length(upstream.comids_tn)) %do% {
     )
   } else {
     Message.tmp <- paste(
-      "Note: There are the same number of reaches in SPARROW and Streamcat",
+      paste0(
+        "Note: For the ", 
+        i, 
+        if(i == 1) {"st"} else if(i == 2) {"nd"} else {"st"}, 
+        " TN target, there are the same number of reaches in SPARROW and Streamcat"
+      ),
       "subsetted datasets.", 
       "All reaches available for BMP optimization", 
       sep = "\n"
@@ -502,7 +523,12 @@ Message.tp <- foreach(i = 1:length(upstream.comids_tp)) %do% {
     length(unique(upstream.comids_tp[[i]]))
   ) {
     Message.tmp <- paste(
-      "Note: There are more reaches in the Vermont and New Hampshire StreamCat",
+      paste0(
+        "Note: For the ", 
+        i, 
+        if(i == 1) {"st"} else if(i == 2) {"nd"} else {"st"}, 
+        " TP target, there are more reaches in the provided StreamCat"
+      ),
       "datasets than are included in SPARROW.", 
       "Only the reaches that are included in both datasets will be available",
       "for BMP optimization.Loads the remaining reaches will be included in",
@@ -514,7 +540,12 @@ Message.tp <- foreach(i = 1:length(upstream.comids_tp)) %do% {
     length(unique(upstream.comids_tp[[i]]))
   ) {
     Message.tmp <- paste(
-      "Note: There are fewer reaches in the Vermont and New Hampshire",
+      paste0(
+        "Note: For the ", 
+        i, 
+        if(i == 1) {"st"} else if(i == 2) {"nd"} else {"st"}, 
+        " TP target, there are fewer reaches in the provided"
+      ),
       "StreamCat datasets than are included in SPARROW.", 
       "Only the reaches that are included in both datasets will be available",
       "for BMP optimization. Loads the remaining reaches will be included in",
@@ -523,7 +554,12 @@ Message.tp <- foreach(i = 1:length(upstream.comids_tp)) %do% {
     )
   } else {
     Message.tmp <- paste(
-      "Note: There are the same number of reaches in SPARROW and Streamcat",
+      paste0(
+        "Note: For the ", 
+        i, 
+        if(i == 1) {"st"} else if(i == 2) {"nd"} else {"st"}, 
+        " TP target, there are the same number of reaches in SPARROW and Streamcat"
+      ),
       "subsetted datasets.", 
       "All reaches available for BMP optimization", 
       sep = "\n"
@@ -650,104 +686,39 @@ delfrac_rev_tp <- foreach(i = 1:length(temp_delfrac_rev_tp)) %do% {
 ft2_to_ac <- 43560
 yd2_to_ac <- 4840
 
-temp_bmp_costs <- user_specs_BMPs[
-  user_specs_BMPs$BMP_Selection=="X",
-  c(
-    "BMP_Category",
-    "BMP",
-    "capital_VT",
-    "capital_NH",
-    "operations_VT",
-    "operations_NH", 
-    "capital_units",
-    "operations_units",
-    "UserSpec_RD_in"
+temp_bmp_costs <- user_specs_BMPs %>%
+  filter(BMP_Selection == "X") %>%
+  select(
+    BMP_Category, BMP, contains(c("capital", "operations")), UserSpec_RD_in
   )
-] 
 
 # Convert area-specific costs to costs per acre for ag BMPs and to costs per linear foot for Riparian BMPs
 
 temp_bmp_costs_rev <- temp_bmp_costs %>%
   mutate(
-    capital_VT_rev = case_when(
-      BMP_Category == "ag" ~ case_when(
-        capital_units == "ft2" ~ capital_VT * ft2_to_ac,
-        capital_units == "km2" ~ capital_VT * km2_to_ac,
-        capital_units == "yd2" ~ capital_VT * yd2_to_ac,
-        capital_units == "ac" ~ capital_VT
-      ),
-      BMP_Category == "urban" ~ capital_VT,
-      BMP_Category == "point" ~ capital_VT,
-      BMP_Category == "ripbuf" ~ case_when(
-        capital_units == "ft2" ~ capital_VT * UserSpec_RD_in,
-        capital_units == "km2" ~ capital_VT * 
-          km2_to_ac / ft2_to_ac * 
-          UserSpec_RD_in,
-        capital_units == "yd2" ~ capital_VT * 
-          yd2_to_ac / ft2_to_ac * 
-          UserSpec_RD_in,
-        capital_units == "ac" ~ capital_VT / ft2_to_ac * UserSpec_RD_in
-      )
-    ), 
-    capital_NH_rev = case_when(
-      BMP_Category == "ag" ~ case_when(
-        capital_units == "ft2" ~ capital_NH * ft2_to_ac,
-        capital_units == "km2" ~ capital_NH * km2_to_ac,
-        capital_units == "yd2" ~ capital_NH * yd2_to_ac,
-        capital_units == "ac" ~ capital_NH
-      ),
-      BMP_Category == "urban" ~ capital_NH,
-      BMP_Category == "point" ~ capital_NH,
-      BMP_Category == "ripbuf" ~ case_when(
-        capital_units == "ft2" ~ capital_NH * UserSpec_RD_in,
-        capital_units == "km2" ~ capital_NH *
-          km2_to_ac / ft2_to_ac * 
-          UserSpec_RD_in,
-        capital_units == "yd2" ~ capital_NH * 
-          yd2_to_ac / ft2_to_ac * 
-          UserSpec_RD_in,
-        capital_units == "ac" ~ capital_NH / ft2_to_ac * UserSpec_RD_in
-      )
-    ), 
-    operations_VT_rev = case_when(
-      BMP_Category == "ag" ~ case_when(
-        capital_units == "ft2" ~ operations_VT * ft2_to_ac,
-        capital_units == "km2" ~ operations_VT * km2_to_ac,
-        capital_units == "yd2" ~ operations_VT * yd2_to_ac,
-        capital_units == "ac" ~ operations_VT
-      ),
-      BMP_Category == "urban" ~ operations_VT,
-      BMP_Category == "point" ~ operations_VT,
-      BMP_Category == "ripbuf" ~ case_when(
-        capital_units == "ft2" ~ operations_VT * UserSpec_RD_in,
-        capital_units == "km2" ~ operations_VT *
-          km2_to_ac / ft2_to_ac * 
-          UserSpec_RD_in,
-        capital_units == "yd2" ~ operations_VT * 
-          yd2_to_ac / ft2_to_ac * 
-          UserSpec_RD_in,
-        capital_units == "ac" ~ operations_VT / ft2_to_ac * UserSpec_RD_in
-      )
-    ), 
-    operations_NH_rev = case_when(
-      BMP_Category == "ag" ~ case_when(
-        capital_units == "ft2" ~ operations_NH * ft2_to_ac,
-        capital_units == "km2" ~ operations_NH * km2_to_ac,
-        capital_units == "yd2" ~ operations_NH * yd2_to_ac,
-        capital_units == "ac" ~ operations_NH
-      ),
-      BMP_Category == "urban" ~ operations_NH,
-      BMP_Category == "point" ~ operations_NH,
-      BMP_Category == "ripbuf" ~ case_when(
-        capital_units == "ft2" ~ operations_NH * UserSpec_RD_in,
-        capital_units == "km2" ~ operations_NH * 
-          km2_to_ac / ft2_to_ac * 
-          UserSpec_RD_in,
-        capital_units == "yd2" ~ operations_NH * 
-          yd2_to_ac / ft2_to_ac * 
-          UserSpec_RD_in,
-        capital_units == "ac" ~ operations_NH / ft2_to_ac * UserSpec_RD_in
-      )
+    across(
+      .cols = c(contains(c("capital_", "operations_")) & !contains("units")), 
+      .fns = ~replace_na(., NA_real_)
+    ),
+    across(
+      .cols = c(contains(c("capital_", "operations_")) & !contains("units")), 
+      .fns = ~case_when(
+        BMP_Category == "ag" ~ case_when(
+          capital_units == "ft2" ~ . * ft2_to_ac,
+          capital_units == "km2" ~ . * km2_to_ac,
+          capital_units == "yd2" ~ . * yd2_to_ac,
+          capital_units == "ac" ~ .
+        ),
+        BMP_Category == "urban" ~ .,
+        BMP_Category == "point" ~ .,
+        BMP_Category == "ripbuf" ~ case_when(
+          capital_units == "ft2" ~ . * UserSpec_RD_in,
+          capital_units == "km2" ~ . * km2_to_ac / ft2_to_ac * UserSpec_RD_in,
+          capital_units == "yd2" ~ . * yd2_to_ac / ft2_to_ac * UserSpec_RD_in,
+          capital_units == "ac" ~ . / ft2_to_ac * UserSpec_RD_in
+        )
+      ), 
+      .names = "{.col}_rev"
     )
   )
 
@@ -756,45 +727,75 @@ bmp_costs <- temp_bmp_costs_rev %>%
     c(
       "BMP_Category",
       "BMP",
-      "capital_VT_rev",
-      "capital_NH_rev",
-      "operations_VT_rev",
-      "operations_NH_rev"
+      contains(c("capital_", "operations_")) & !contains("units") & 
+        contains("rev")
+    )
+  ) %>%
+  rename(
+    category = BMP_Category,
+    bmp = BMP
+  ) %>%
+  rename_at(
+    vars(contains(c("capital_", "operations_"))), list( ~ gsub("_rev", "", .))
+  ) %>%
+  # Annualize capital costs based on planning horizon and interest rate
+  mutate(
+    across(
+      .cols = contains("capital_"), 
+      .fns = ~(
+        . * (
+          interest_rate * ((1 + interest_rate) ^ horizon) / (
+            ((1 + interest_rate) ^ horizon) - 1
+          )
+        )
+      )
+    )
+  ) %>%
+  mutate(
+    across(
+      .fns = ~case_when(
+        category == "point" ~ replace_na(., 0), category != "point" ~ .
+      )
     )
   )
-names(bmp_costs) <- c(
-  "category","bmp","capital_VT","capital_NH","operations_VT","operations_NH"
-)
-
-# Annualize capital costs based on planning horizon and interest rate
-bmp_costs[c(3:4)] <- bmp_costs[c(3:4)] *
-  (
-    interest_rate * ((1 + interest_rate) ^ horizon) / 
-      (((1 + interest_rate) ^ horizon) - 1)
-  )
-
-bmp_costs[is.na(bmp_costs)] <- 0
 
 ### Specify point source costs as either capital or operations, depending on WWTP state
 
-point_comid <- fread(paste(InPath, "WWTP_COMIDs.csv", sep="")) #*#
-# Note to user: Can update this file if more WWTPs desired for analysis; must also update UserSpecs_BMPs.csv with costs
-names(point_comid) <- c("State", "bmp", "NPDES_ID", "comid")
-
-temp_bmp_costs_point <- merge(
-  bmp_costs[bmp_costs$category =="point",], 
-  point_comid,
-  by = "bmp",
-  all.x = TRUE
-)
-temp_bmp_costs_point$capital <- with(
-  temp_bmp_costs_point, ifelse(State == "NH", capital_NH, capital_VT)
-) #*#
-temp_bmp_costs_point$operations <- with(
-  temp_bmp_costs_point, ifelse(State == "NH", operations_NH, operations_VT)
-) #*#
-bmp_costs_point <- temp_bmp_costs_point %>% 
-  select(c("category", "comid", "capital", "operations", "State"))
+if("point" %in% bmp_costs$category) {
+  point_comid <- fread(paste(InPath, "WWTP_COMIDs.csv", sep="")) #*#
+  # Note to user: Can update this file if more WWTPs desired for analysis; must also update UserSpecs_BMPs.csv with costs
+  names(point_comid) <- c("State", "bmp", "NPDES_ID", "comid")
+  
+  temp_bmp_costs_point <- merge(
+    bmp_costs[bmp_costs$category =="point",], 
+    point_comid,
+    by = "bmp",
+    all.x = TRUE
+  ) %>%
+    mutate(
+      capital = my_key_fun(., "State", ~paste0("capital_", .x)),
+      operations = my_key_fun(., "State", ~paste0("operations_", .x))
+    ) 
+  
+  if(any(is.na(temp_bmp_costs_point))) {
+    stop(
+      paste0(
+        "Point costs for ", 
+        paste(
+          temp_bmp_costs_point %>% 
+            filter(is.na(capital) | is.na(operations)) %>% 
+            select(bmp) %>% 
+            pull(), 
+          collapse = ", "
+        ),
+        " not provided. Please ensure costs are available in `01_UserSpecs_BMPs.csv`"
+      )
+    )
+  }
+  
+  bmp_costs_point <- temp_bmp_costs_point %>% 
+    select(c("category", "comid", "capital", "operations", "State"))
+} else {bmp_costs_point <- data.frame(category = "point", comid = NA, capital = NA, operations = NA, State = NA)}
 
 ### Define the fraction of agricultural costs that reflect base payment versus actual agricultural BMP costs
 agcost_frac <- 100/75
@@ -1050,7 +1051,7 @@ ag_effic_bycomid_tp <- add_column(
 
 
 ### Point Source BMPs
-
+if("point" %in% bmp_costs$category) {
 temp_point_effic <- fread(
   paste(InPath, "WWTP_RemovalEffic.csv", sep = ""), 
   col.names = c("BMP_Category", "bmp", "N_Efficiency", "P_Efficiency")
@@ -1072,6 +1073,14 @@ point_effic_bycomid_tn <- point_effic %>%
 
 point_effic_bycomid_tp <- point_effic %>% 
   select(category = BMP_Category, comid, effic = P_Efficiency)
+} else {
+  point_effic_bycomid_tn <- data.frame(
+    BMP_Category = "point", comid = NA, effic = NA
+    )
+  point_effic_bycomid_tp <- data.frame(
+    BMP_Category = "point", comid = NA, effic = NA
+    )
+}
 
 
 ### Urban BMPs
@@ -1121,7 +1130,7 @@ if(length(Urban_BMPs) > 0) {
     mutate(iter = 1, effic = eval(parse(text = expression))) %>%
     filter(
       BMP %in% user_specs_BMPs$BMP[user_specs_BMPs$BMP_Selection == "X"]
-      ) %>%
+    ) %>%
     select(
       category = BMP_Category, bmp = BMP, effic, InfiltrationRate_inperhr
     ) %>%
@@ -1172,7 +1181,7 @@ if(length(Urban_BMPs) > 0) {
     mutate(iter = 1, effic = eval(parse(text = expression))) %>%
     filter(
       BMP %in% user_specs_BMPs$BMP[user_specs_BMPs$BMP_Selection == "X"]
-      ) %>%
+    ) %>%
     select(
       category = BMP_Category, bmp = BMP, effic, InfiltrationRate_inperhr
     ) %>%
@@ -1449,7 +1458,7 @@ bmp_urban_vec_direct <- bmp_urban$BMP
 
 pervbmp_urban_vec_comma <- paste0(
   "'", with(bmp_urban, BMP[which(grepl("Porous_Pavement", BMP))]), "'"
-  )
+)
 pervbmp_urban_vec_comma[-length(pervbmp_urban_vec_comma)] <- paste0(
   pervbmp_urban_vec_comma[-length(pervbmp_urban_vec_comma)], ','
 )
@@ -1507,7 +1516,7 @@ if(length(RiparianBuffer_BMPs) > 0) {
     select(comid_form, any_of(RiparianBuffer_BMPs))
 }
 
-temp_runoffcoeff_dat <- runoffcoeff[
+temp_runoffcoeff_dat <- as.data.frame(runoffcoeff)[
   runoffcoeff$comid %in% streamcat_subset_all$comid,
 ]
 temp_runoffcoeff_dat <- temp_runoffcoeff_dat[order(temp_runoffcoeff_dat$comid),]
@@ -1515,23 +1524,17 @@ temp_runoffcoeff_dat$comid_form <- paste0("'", temp_runoffcoeff_dat$comid, "'")
 runoffcoeff_dat <- temp_runoffcoeff_dat %>% 
   select(c("comid_form", "runoffcoeff"))
 
-# Specify NH versus VT COMIDs
+# Specify state COMIDs
 # Note to user: StreamCat datasets list catchments that are on the border of two states within both states' datasets
-# Because agricultural costs are in some cases state-specific, we select VT costs for such catchments
+# Because agricultural costs are in some cases state-specific, we select costs associated with the state that leads alphabetically for such catchments
 COMID_State <- distinct(
   imperv[
     imperv$comid %in% streamcat_subset_all$comid, c("comid", "StateAbbrev")
-    ]
-) #*#
-dups <- COMID_State[duplicated(COMID_State$comid),] #*#
-
-if(nrow(dups) > 0) {
-  # Assign state "VT" to duplicate COMIDs
-  dups$StateAbbrev <- "VT" #*#
-  COMID_State <- COMID_State[!(COMID_State$comid %in% dups$comid),] #*#
-  COMID_State <- rbind(COMID_State, dups) #*#
-}
-names(COMID_State) <- c("comid", "State") #*#
+  ]
+) %>% 
+  group_by(comid) %>%
+  arrange(StateAbbrev) %>%
+  summarize(State = StateAbbrev[1]) #*#
 
 ### Multiply all loads by revised del_frac
 
@@ -1779,25 +1782,67 @@ if(length(RiparianBuffer_BMPs) > 0) {
     
   }
 }
-# # Format imperviousness data
-# 
-# pctimpvurb_dat <- pctimpvurb %>%
-#   filter(comid %in% streamcat_subset_all$comid) %>%
-#   arrange(comid) %>%
-#   mutate(comid_form = paste0("'", comid, "'")) %>%
-#   select(comid_form, imparea_pcturban)
 
 # Format urban BMP costs (do not vary by state)
-# Note to user: urban BMP costs do not vary by state, thus can set capital and operations costs to VT costs
-temp_urban_costs_dat <- bmp_costs[
-  bmp_costs$category == "urban",
-  c("bmp", "capital_VT", "capital_NH", "operations_VT", "operations_NH")
-] #*#
-temp_urban_costs_dat$capital <- temp_urban_costs_dat$capital_VT #*#
-temp_urban_costs_dat$operations <- temp_urban_costs_dat$operations_VT #*#
-urban_costs_dat <-temp_urban_costs_dat %>% 
-  select(c("bmp", "capital", "operations")) 
+# Note to user: urban BMP costs do not vary by state, thus can set capital and operations costs to the first provided cost alphabetically by state
+
 if(length(Urban_BMPs) > 0) {
+  temp_urban_costs_dat <- bmp_costs %>%
+    filter(category == "urban") %>%
+    select(
+      bmp, contains(c("capital", "operations"))
+    ) %>%
+    pivot_longer(
+      ., 
+      cols = contains(c("capital", "operations")), 
+      names_to = c("CostType", "State"), 
+      names_sep = "_"
+    ) %>%
+    group_by(bmp, CostType) %>%
+    summarise(
+      index = if(length(which(!is.na(value)) > 0)) {min(which(!is.na(value)))} else {NA},
+      Cost = value[index], 
+      State = State[index],
+      .groups = "keep"
+    )
+  
+  if(
+    any(is.na(temp_urban_costs_dat)) | 
+    any(!(c("capital", "operations") %in% temp_urban_costs_dat$CostType))
+  ) {
+    stop(
+      paste0(
+        "Urban costs (capital and/or operations) for ", 
+        paste(
+          temp_urban_costs_dat %>% 
+            filter(is.na(Cost)) %>% 
+            select(bmp) %>% 
+            unique() %>%
+            pull(), 
+          collapse = ", "
+        ),
+        paste(
+          c("capital", "operations")[
+            which(
+              !(c("capital", "operations") %in% temp_urban_costs_dat$CostType)
+            )
+          ]
+        ),
+        " not provided. Please ensure costs are available in `01_UserSpecs_BMPs.csv`"
+      )
+    )
+  }
+  
+  print(
+    paste0(
+      "Urban base costs are assumed to be the same across states. RBEROST is using values from ",
+      paste(unique(temp_urban_costs_dat$State), collapse = ", "), "."
+    )
+  )
+  
+  urban_costs_dat <- temp_urban_costs_dat %>%
+    pivot_wider(id_cols = bmp, names_from = CostType, values_from = Cost)
+  
   urban_costs_dat$bmp_form  <- paste0("'", urban_costs_dat$bmp, "'") 
 }
 
@@ -1805,21 +1850,57 @@ if(length(Urban_BMPs) > 0) {
 # Separate parameters for ag_capital and ag_operations and format costs data
 
 if(length(Ag_BMPs) > 0) {
+  
   temp_bmp_costs_ag <- merge(
-    bmp_costs[
-      bmp_costs$category == "ag",
-      c("bmp", "capital_VT", "capital_NH", "operations_VT", "operations_NH")
-    ],
+    bmp_costs %>%
+      filter(category == "ag") %>%
+      select(
+        bmp, contains(c("capital", "operations"))
+      ),
     COMID_State
-  ) #*#
-  temp_bmp_costs_ag$capital <-  with(
-    temp_bmp_costs_ag ,ifelse(State == "NH" ,capital_NH, capital_VT)
-  ) #*#
-  temp_bmp_costs_ag$operations <-  with(
-    temp_bmp_costs_ag, ifelse(State == "NH", operations_NH, operations_VT) 
-  ) #*#
-  temp_bmp_costs_ag <- temp_bmp_costs_ag[order(temp_bmp_costs_ag$comid),]
-  temp_bmp_costs_ag$comid_form <- paste0("'", temp_bmp_costs_ag$comid, "'")
+  ) %>%
+    mutate(
+      capital = my_key_fun(., "State", ~paste0("capital_", .x)),
+      operations = my_key_fun(., "State", ~paste0("operations_", .x))
+    ) %>%
+    arrange(comid) %>%
+    mutate(comid_form = paste0("'", comid, "'"))
+  
+  if(
+    any(is.na(temp_bmp_costs_ag$capital)) | 
+    any(is.na(temp_bmp_costs_ag$operations))
+  ) {
+    stop(
+      paste0(
+        "Ag ",
+        if(
+          any(is.na(temp_bmp_costs_ag$capital)) & 
+          any(is.na(temp_bmp_costs_ag$operations))
+        ) {paste("capital and operations ")} else if (
+          any(is.na(temp_bmp_costs_ag$capital))
+        ) {paste("capital ")} else {paste("operations ")},
+        "costs for ", 
+        paste(
+          temp_bmp_costs_ag %>% 
+            filter(is.na(capital) | is.na(operations)) %>% 
+            select(bmp) %>% 
+            unique() %>%
+            pull(), 
+          collapse = ", "
+        ),
+        " in ",
+        paste(
+          temp_bmp_costs_ag %>% 
+            filter(is.na(capital) | is.na(operations)) %>% 
+            select(State) %>% 
+            unique() %>%
+            pull(), 
+          collapse = ", "
+        ),
+        " not provided. Please ensure costs are available in `01_UserSpecs_BMPs.csv`"
+      )
+    )
+  }
   
   bmp_costs_ag_capital <- reshape2::dcast(
     temp_bmp_costs_ag[, c("comid", "comid_form", "bmp", "capital")], 
@@ -1849,28 +1930,59 @@ if(length(Ag_BMPs) > 0) {
   ag_costs_op_dat <- ag_costs_op_dat %>% select(comid_form, everything())
 }
 
-
 # Format riparian costs
-temp_bmp_costs_ripbuf <- merge(
-  bmp_costs[
-    bmp_costs$category == "ripbuf",
-    c("bmp", "capital_VT", "capital_NH", "operations_VT", "operations_NH")
-  ],
-  COMID_State
-) #*#
-temp_bmp_costs_ripbuf$capital <-  with(
-  temp_bmp_costs_ripbuf ,ifelse(State == "NH" ,capital_NH, capital_VT)
-) #*#
-temp_bmp_costs_ripbuf$operations <-  with(
-  temp_bmp_costs_ripbuf, ifelse(State == "NH", operations_NH, operations_VT) 
-) #*#
-temp_bmp_costs_ripbuf <- temp_bmp_costs_ripbuf[
-  order(temp_bmp_costs_ripbuf$comid),
-]
+
 if(length(RiparianBuffer_BMPs) > 0) {
-  temp_bmp_costs_ripbuf$comid_form <- paste0(
-    "'", temp_bmp_costs_ripbuf$comid, "'"
-  )
+  temp_bmp_costs_ripbuf <- merge(
+    bmp_costs %>%
+      filter(category == "ripbuf") %>%
+      select(
+        bmp, contains(c("capital", "operations"))
+      ),
+    COMID_State
+  ) %>%
+    mutate(
+      capital = my_key_fun(., "State", ~paste0("capital_", .x)),
+      operations = my_key_fun(., "State", ~paste0("operations_", .x))
+    ) %>%
+    arrange(comid) %>%
+    mutate(comid_form = paste0("'", comid, "'"))
+  
+  if(
+    any(is.na(temp_bmp_costs_ripbuf$capital)) | 
+    any(is.na(temp_bmp_costs_ripbuf$operations))
+  ) {
+    stop(
+      paste0(
+        "Riparian Buffer ",
+        if(
+          any(is.na(temp_bmp_costs_ripbuf$capital)) & 
+          any(is.na(temp_bmp_costs_ripbuf$operations))
+        ) {paste("capital and operations ")} else if (
+          any(is.na(temp_bmp_costs_ripbuf$capital))
+        ) {paste("capital ")} else {paste("operations ")},
+        "costs for ", 
+        paste(
+          temp_bmp_costs_ripbuf %>% 
+            filter(is.na(capital) | is.na(operations)) %>% 
+            select(bmp) %>% 
+            unique() %>%
+            pull(), 
+          collapse = ", "
+        ),
+        " in ",
+        paste(
+          temp_bmp_costs_ripbuf %>% 
+            filter(is.na(capital) | is.na(operations)) %>% 
+            select(State) %>% 
+            unique() %>%
+            pull(), 
+          collapse = ", "
+        ),
+        " not provided. Please ensure costs are available in `01_UserSpecs_BMPs.csv`"
+      )
+    )
+  }
   
   bmp_costs_ripbuf_capital <- reshape2::dcast(
     temp_bmp_costs_ripbuf[, c("comid", "comid_form", "bmp", "capital")], 
@@ -2019,7 +2131,7 @@ temp_point_costs_dat <- bmp_costs_point[
 temp_point_costs_other <- as.data.frame(
   streamcat_subset_all[
     !(streamcat_subset_all$comid %in% temp_point_costs_dat$comid),
-    ]
+  ]
 )
 names(temp_point_costs_other) <- "comid"
 temp_point_costs_other_rev <- merge(
@@ -2127,7 +2239,8 @@ urban_bmp_implementationpotential_dat <- setNames(
 # Format Urban Cost Coefficient Data
 urban_cost_coeffs_dat <- urban_cost_coeffs %>%
   filter(comid %in% unlist(streamcat_subset_all)) %>%
-  unique() %>%
+  group_by(comid) %>%
+  summarise(urban_cost_coef = mean(urban_cost_coef)) %>%
   arrange('comid') %>%
   mutate(comid_form = paste0("'", comid, "'")) %>%
   select(comid_form, urban_cost_coef) 
@@ -2324,7 +2437,7 @@ if(length(RiparianBuffer_BMPs) > 0) {
       "\nparam unbuffered_banklength : ",  
       paste(bmp_ripbuf_vec, collapse  = "  "), 
       " :="
-      ), 
+    ), 
     file = paste(OutPath,"STdata.dat",sep = ""), 
     append = T
   )
@@ -2401,7 +2514,7 @@ if(length(Ag_BMPs) > 0) {
     )
     cat(
       "\n", file = paste(OutPath, "STdata.dat", sep = ""), sep = "", append = T
-      )
+    )
     write.table(
       ag_effic_dat_tn %>% select(comid_form, all_of(bmp_ag_vec_direct)), # selecting forces the order incase they are disordered in preprocessing code above
       file = paste(OutPath, "STdata.dat", sep = "") , 
@@ -2424,7 +2537,7 @@ if(length(Ag_BMPs) > 0) {
     )
     cat(
       "\n", file = paste(OutPath, "STdata.dat", sep = ""), sep = "", append = T
-      )
+    )
     write.table(
       ag_effic_dat_tp %>% select(comid_form, all_of(bmp_ag_vec_direct)),  # selecting forces the order incase they are disordered in preprocessing code above
       file = paste(OutPath, "STdata.dat", sep = "") , 
@@ -2447,7 +2560,7 @@ if(length(Ag_BMPs) > 0) {
     )
     cat(
       "\n", file = paste(OutPath, "STdata.dat", sep = ""), sep = "", append = T
-      )
+    )
     write.table(
       unique(do.call("rbind", ag_bmp_dummy_tn)) %>% select(comid, none), # selecting forces the order incase they are disordered in preprocessing code above
       file = paste(OutPath, "STdata.dat", sep = "") , 
@@ -2470,7 +2583,7 @@ if(length(Ag_BMPs) > 0) {
     )
     cat(
       "\n", file = paste(OutPath, "STdata.dat", sep = ""), sep = "", append = T
-      )
+    )
     write.table(
       unique(do.call("rbind", ag_bmp_dummy_tp)) %>% select(comid, none), # selecting forces the order incase they are disordered in preprocessing code above
       file = paste(OutPath, "STdata.dat", sep = "") , 
@@ -2534,11 +2647,11 @@ if("TN" %in% user_specs_loadingtargets$TN_or_TP) {
     )
     cat(
       "\n", file = paste(OutPath, "STdata.dat", sep = ""), sep = "", append = T
-      )
+    )
     write.table(
       unique(
         urban_effic_dat_tn %>% select(comid_form, all_of(bmp_urban_vec_direct))
-        ), # selecting forces the order incase they are disordered in preprocessing code above
+      ), # selecting forces the order incase they are disordered in preprocessing code above
       file = paste(OutPath, "STdata.dat", sep = "") , 
       append = T,
       sep = "\t",
@@ -2556,7 +2669,7 @@ if("TN" %in% user_specs_loadingtargets$TN_or_TP) {
     )
     cat(
       "\n", file = paste(OutPath, "STdata.dat", sep = ""), sep = "", append = T
-      )
+    )
     write.table(
       unique(do.call("rbind", urban_bmp_dummy_tn) %>% select(comid, none)), # selecting forces the order incase they are disordered in preprocessing code above
       file = paste(OutPath, "STdata.dat", sep = "") , 
@@ -2581,11 +2694,11 @@ if("TP" %in% user_specs_loadingtargets$TN_or_TP) {
     )
     cat(
       "\n", file = paste(OutPath, "STdata.dat", sep = ""), sep = "", append = T
-      )
+    )
     write.table(
       unique(
         urban_effic_dat_tp %>% select(comid_form, all_of(bmp_urban_vec_direct))
-        ), # selecting forces the order incase they are disordered in preprocessing code above
+      ), # selecting forces the order incase they are disordered in preprocessing code above
       file = paste(OutPath, "STdata.dat", sep = "") , 
       append = T,
       sep = "\t",
@@ -2603,7 +2716,7 @@ if("TP" %in% user_specs_loadingtargets$TN_or_TP) {
     )
     cat(
       "\n", file = paste(OutPath, "STdata.dat", sep = ""), sep = "", append = T
-      )
+    )
     write.table(
       unique(do.call("rbind", urban_bmp_dummy_tp) %>% select(comid, none)), # selecting forces the order incase they are disordered in preprocessing code above
       file = paste(OutPath, "STdata.dat", sep = "") , 
@@ -2994,7 +3107,7 @@ invisible(
         file = paste(OutPath, "STdata.dat", sep = ""), 
         sep = "",
         append = T
-        )
+      )
     }
   }
 )
@@ -3016,7 +3129,7 @@ invisible(
       )
       cat(
         ";", file = paste(OutPath, "STdata.dat", sep = ""), sep = "", append = T
-        )
+      )
     }
   }
 )
@@ -3039,7 +3152,7 @@ invisible(
     )
     cat(
       ";", file = paste(OutPath, "STdata.dat", sep = ""), sep = "", append = T
-      )
+    )
   }
 )
 
@@ -3059,7 +3172,7 @@ invisible(
     )
     cat(
       ";", file = paste(OutPath, "STdata.dat", sep = ""), sep = "", append = T
-      )
+    )
   }
 )
 
@@ -3275,7 +3388,7 @@ if("TN" %in% user_specs_loadingtargets$TN_or_TP) {
   )
   cat(
     "\n", file = paste(OutPath, "STmodel.mod", sep = ""), sep = "", append = T
-    )
+  )
 }
 
 if("TP" %in% user_specs_loadingtargets$TN_or_TP) {
@@ -3291,7 +3404,7 @@ if("TP" %in% user_specs_loadingtargets$TN_or_TP) {
   )
   cat(
     "\n", file = paste(OutPath, "STmodel.mod", sep = ""), sep = "", append = T
-    )
+  )
 }
 
 invisible(
@@ -3315,7 +3428,7 @@ invisible(
         file = paste(OutPath, "STmodel.mod", sep = ""),
         sep = "", 
         append = T
-        )
+      )
     }
   }
 )
@@ -3341,7 +3454,7 @@ invisible(
         file = paste(OutPath, "STmodel.mod", sep = ""), 
         sep = "", 
         append = T
-        )
+      )
     }
   }
 )

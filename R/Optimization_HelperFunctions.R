@@ -47,6 +47,8 @@
 # 6. my_str_split()
 # 7. my_propogateerror()
 # 8. my_index()
+# 9. my_parse()
+# 10. my_key_fun()
 ##################################################
 
 ##################################################
@@ -68,7 +70,7 @@ invisible(
 ### get_upstream_ComIDs() takes as inputs the sparrow inputs for the region modelling and a character string of the target comid, which is equivalent to the pore or pour points
 ### For intermediate targets, the target.comid is the comid that the TMDL relates to.
 ### There are 2 versions of this function, which undergo the catchment delineation in 2 different ways.
-### Version 1 is the default version used in this package
+### Version 1 used to be the default version used in this package, however because it relies on nhdplusTools, and because nhdplusTools was temporarily removed from CRAN, version 2 is now dedicated as the default.
 
 # ### Version 1: This function uses the nhdplusTools package to use a web service to find contributing catchments. 
 # ### Trade-off: This version is about 5x faster, however it misses any inaccuracies in the NHD+ database.
@@ -250,3 +252,14 @@ my_index <- function(x, i) {lapply(x, "[[", i)}
 # This function allows for parsing using lapply
 
 my_parse <- function(x) {parse(text = x)}
+
+##################################################
+# 10. my_key_fun()
+##################################################
+# This function allows RBEROST to key values that are state specific from a State column in a data frame
+
+my_key_fun <- function(df, key, key_transform) {
+  x <- df %>% select(all_of(key)) %>% unlist()
+  y <- unlist(imap(.x = x, .f = key_transform))
+  z <- as.numeric(df[cbind(seq(1:nrow(df)), match(y, names(df)))])
+}

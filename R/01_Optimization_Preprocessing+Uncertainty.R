@@ -428,7 +428,8 @@ temp_inc_tp_dat <- foreach(i = 1:length(upstream.comids_tp)) %do% {
 temp_runoffcoeff <- imperv %>% 
   select(c("comid","PctImp2011Cat")) %>%
   mutate(cv_numpixels_nlcd = 0.17) %>% # Wickham et al 2017 report overall 83% accuracy in level II data (including all categories, such as Med Development, High Development, etc.) The PctImp2011Cat came from NLCD, possibly the impervious dataset, not the larger categorical one. I'm assuming the accuracy is the same regardless. https://gaftp.epa.gov/epadatacommons/ORD/NHDPlusLandscapeAttributes/StreamCat/Documentation/Metadata/ImperviousSurfaces2016.html
-  mutate(PctImp2011Cat_se = PctImp2011Cat * cv_numpixels_nlcd)#*#
+  mutate(PctImp2011Cat_se = PctImp2011Cat * cv_numpixels_nlcd) %>%
+  as.data.frame()
 
 
 temp_runoffcoeff$runoffcoeff <- with(
@@ -1289,8 +1290,10 @@ temp_area <- merge(
   ungroup()
 
 ## Format area uncertainty ####
-area <- temp_area %>% select(c("comid","urban_ac","ag_ac", "urban_ac_se", "ag_ac_se"))
-area <- distinct(area) # Removes duplicates
+area <- temp_area %>% 
+  select(c("comid","urban_ac","ag_ac", "urban_ac_se", "ag_ac_se")) %>%
+  group_by(comid) %>%
+  summarize(across(.fns = ~mean(.))) # Removes duplicates
 
 temp_area_dat <- area[area$comid %in% reaches_all$comid,]
 temp_area_dat <- temp_area_dat[order(temp_area_dat$comid),]
@@ -1323,20 +1326,11 @@ bmp_costs_se <- ag_costs_yearly %>%
 ## adjust ag & riparian units ####
 
 temp_bmp_costs <- merge(
-  user_specs_BMPs[
-    user_specs_BMPs$BMP_Selection=="X",
-    c(
-      "BMP_Category",
-      "BMP",
-      "capital_VT",
-      "capital_NH",
-      "operations_VT",
-      "operations_NH", 
-      "capital_units",
-      "operations_units",
-      "UserSpec_RD_in"
-    )
-  ],
+  user_specs_BMPs %>%
+    filter(BMP_Selection == "X") %>%
+    select(
+      BMP_Category, BMP, contains(c("capital", "operations")), UserSpec_RD_in
+    ),
   bmp_costs_se,
   by = c("BMP_Category", "BMP", "capital_units", "operations_units"),
   suffixes = c("_Estimate", "_se")
@@ -1347,147 +1341,69 @@ temp_bmp_costs <- merge(
 
 temp_bmp_costs_rev <- temp_bmp_costs %>%
   mutate(
-    capital_VT_rev = case_when(
-      BMP_Category == "ag" ~ case_when(
-        capital_units == "ft2" ~ capital_VT_Estimate * ft2_to_ac,
-        capital_units == "km2" ~ capital_VT_Estimate * km2_to_ac,
-        capital_units == "yd2" ~ capital_VT_Estimate * yd2_to_ac,
-        capital_units == "ac" ~ capital_VT_Estimate
-      ),
-      BMP_Category == "urban" ~ capital_VT_Estimate,
-      BMP_Category == "point" ~ capital_VT_Estimate,
-      BMP_Category == "ripbuf" ~ case_when(
-        capital_units == "ft2" ~ capital_VT_Estimate * UserSpec_RD_in,
-        capital_units == "km2" ~ capital_VT_Estimate * km2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "yd2" ~ capital_VT_Estimate * yd2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "ac" ~ capital_VT_Estimate / ft2_to_ac * UserSpec_RD_in
-      )
-    ), 
-    capital_VT_se_rev = case_when(
-      BMP_Category == "ag" ~ case_when(
-        capital_units == "ft2" ~ capital_VT_se * ft2_to_ac,
-        capital_units == "km2" ~ capital_VT_se * km2_to_ac,
-        capital_units == "yd2" ~ capital_VT_se * yd2_to_ac,
-        capital_units == "ac" ~ capital_VT_se
-      ),
-      BMP_Category == "urban" ~ capital_VT_se,
-      BMP_Category == "point" ~ capital_VT_se,
-      BMP_Category == "ripbuf" ~ case_when(
-        capital_units == "ft2" ~ capital_VT_se * UserSpec_RD_in,
-        capital_units == "km2" ~ capital_VT_se * km2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "yd2" ~ capital_VT_se * yd2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "ac" ~ capital_VT_se / ft2_to_ac * UserSpec_RD_in
-      )
-    ), 
-    capital_NH_rev = case_when(
-      BMP_Category == "ag" ~ case_when(
-        capital_units == "ft2" ~ capital_NH_Estimate * ft2_to_ac,
-        capital_units == "km2" ~ capital_NH_Estimate * km2_to_ac,
-        capital_units == "yd2" ~ capital_NH_Estimate * yd2_to_ac,
-        capital_units == "ac" ~ capital_NH_Estimate
-      ),
-      BMP_Category == "urban" ~ capital_NH_Estimate,
-      BMP_Category == "point" ~ capital_NH_Estimate,
-      BMP_Category == "ripbuf" ~ case_when(
-        capital_units == "ft2" ~ capital_NH_Estimate * UserSpec_RD_in,
-        capital_units == "km2" ~ capital_NH_Estimate * km2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "yd2" ~ capital_NH_Estimate * yd2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "ac" ~ capital_NH_Estimate / ft2_to_ac * UserSpec_RD_in
-      )
-    ), 
-    capital_NH_se_rev = case_when(
-      BMP_Category == "ag" ~ case_when(
-        capital_units == "ft2" ~ capital_NH_se * ft2_to_ac,
-        capital_units == "km2" ~ capital_NH_se * km2_to_ac,
-        capital_units == "yd2" ~ capital_NH_se * yd2_to_ac,
-        capital_units == "ac" ~ capital_NH_se
-      ),
-      BMP_Category == "urban" ~ capital_NH_se,
-      BMP_Category == "point" ~ capital_NH_se,
-      BMP_Category == "ripbuf" ~ case_when(
-        capital_units == "ft2" ~ capital_NH_se * UserSpec_RD_in,
-        capital_units == "km2" ~ capital_NH_se * km2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "yd2" ~ capital_NH_se * yd2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "ac" ~ capital_NH_se / ft2_to_ac * UserSpec_RD_in
-      )
-    ), 
-    operations_VT_rev = case_when(
-      BMP_Category == "ag" ~ case_when(
-        capital_units == "ft2" ~ operations_VT_Estimate * ft2_to_ac,
-        capital_units == "km2" ~ operations_VT_Estimate * km2_to_ac,
-        capital_units == "yd2" ~ operations_VT_Estimate * yd2_to_ac,
-        capital_units == "ac" ~ operations_VT_Estimate
-      ),
-      BMP_Category == "urban" ~ operations_VT_Estimate,
-      BMP_Category == "point" ~ operations_VT_Estimate,
-      BMP_Category == "ripbuf" ~ case_when(
-        capital_units == "ft2" ~ operations_VT_Estimate * UserSpec_RD_in,
-        capital_units == "km2" ~ operations_VT_Estimate * km2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "yd2" ~ operations_VT_Estimate * yd2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "ac" ~ operations_VT_Estimate / ft2_to_ac * UserSpec_RD_in
-      )
-    ), 
-    operations_VT_se_rev = case_when(
-      BMP_Category == "ag" ~ case_when(
-        capital_units == "ft2" ~ operations_VT_se * ft2_to_ac,
-        capital_units == "km2" ~ operations_VT_se * km2_to_ac,
-        capital_units == "yd2" ~ operations_VT_se * yd2_to_ac,
-        capital_units == "ac" ~ operations_VT_se
-      ),
-      BMP_Category == "urban" ~ operations_VT_se,
-      BMP_Category == "point" ~ operations_VT_se,
-      BMP_Category == "ripbuf" ~ case_when(
-        capital_units == "ft2" ~ operations_VT_se * UserSpec_RD_in,
-        capital_units == "km2" ~ operations_VT_se * km2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "yd2" ~ operations_VT_se * yd2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "ac" ~ operations_VT_se / ft2_to_ac * UserSpec_RD_in
-      )
-    ), 
-    operations_NH_rev = case_when(
-      BMP_Category == "ag" ~ case_when(
-        capital_units == "ft2" ~ operations_NH_Estimate * ft2_to_ac,
-        capital_units == "km2" ~ operations_NH_Estimate * km2_to_ac,
-        capital_units == "yd2" ~ operations_NH_Estimate * yd2_to_ac,
-        capital_units == "ac" ~ operations_NH_Estimate
-      ),
-      BMP_Category == "urban" ~ operations_NH_Estimate,
-      BMP_Category == "point" ~ operations_NH_Estimate,
-      BMP_Category == "ripbuf" ~ case_when(
-        capital_units == "ft2" ~ operations_NH_Estimate * UserSpec_RD_in,
-        capital_units == "km2" ~ operations_NH_Estimate * km2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "yd2" ~ operations_NH_Estimate * yd2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "ac" ~ operations_NH_Estimate / ft2_to_ac * UserSpec_RD_in
-      )
+    across(
+      .cols = c(contains(c("capital_", "operations_")) & !contains("units")), 
+      .fns = ~replace_na(., NA_real_)
     ),
-    operations_NH_se_rev = case_when(
-      BMP_Category == "ag" ~ case_when(
-        capital_units == "ft2" ~ operations_NH_se * ft2_to_ac,
-        capital_units == "km2" ~ operations_NH_se * km2_to_ac,
-        capital_units == "yd2" ~ operations_NH_se * yd2_to_ac,
-        capital_units == "ac" ~ operations_NH_se
-      ),
-      BMP_Category == "urban" ~ operations_NH_se,
-      BMP_Category == "point" ~ operations_NH_se,
-      BMP_Category == "ripbuf" ~ case_when(
-        capital_units == "ft2" ~ operations_NH_se * UserSpec_RD_in,
-        capital_units == "km2" ~ operations_NH_se * km2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "yd2" ~ operations_NH_se * yd2_to_ac / ft2_to_ac * UserSpec_RD_in,
-        capital_units == "ac" ~ operations_NH_se / ft2_to_ac * UserSpec_RD_in
-      )
+    across(
+      .cols = c(contains(c("capital_", "operations_")) & !contains("units")), 
+      .fns = ~case_when(
+        BMP_Category == "ag" ~ case_when(
+          capital_units == "ft2" ~ . * ft2_to_ac,
+          capital_units == "km2" ~ . * km2_to_ac,
+          capital_units == "yd2" ~ . * yd2_to_ac,
+          capital_units == "ac" ~ .
+        ),
+        BMP_Category == "urban" ~ .,
+        BMP_Category == "point" ~ .,
+        BMP_Category == "ripbuf" ~ case_when(
+          capital_units == "ft2" ~ . * UserSpec_RD_in,
+          capital_units == "km2" ~ . * km2_to_ac / ft2_to_ac * UserSpec_RD_in,
+          capital_units == "yd2" ~ . * yd2_to_ac / ft2_to_ac * UserSpec_RD_in,
+          capital_units == "ac" ~ . / ft2_to_ac * UserSpec_RD_in
+        )
+      ), 
+      .names = "{.col}_rev"
     )
-  )
+  ) %>%
+  rename_with(., .fn = ~gsub("_Estimate", "", .), .cols = everything())
+
 
 ## annualize costs ####
-
 bmp_costs <- temp_bmp_costs_rev %>% 
   select(
     c(
       "BMP_Category",
       "BMP",
-      "capital_VT_rev",
-      "capital_NH_rev",
-      "operations_VT_rev",
-      "operations_NH_rev"
+      contains(c("capital_", "operations_")) & !contains("units") & 
+        contains("rev") & !contains("_se")
+    )
+  ) %>%
+  rename(
+    category = BMP_Category,
+    bmp = BMP
+  ) %>%
+  rename_at(
+    vars(contains(c("capital_", "operations_"))), list( ~ gsub("_rev", "", .))
+  ) %>%
+  # Annualize capital costs based on planning horizon and interest rate
+  mutate(
+    across(
+      .cols = contains("capital_"), 
+      .fns = ~(
+        . * (
+          interest_rate * ((1 + interest_rate) ^ horizon) / (
+            ((1 + interest_rate) ^ horizon) - 1
+          )
+        )
+      )
+    )
+  ) %>%
+  mutate(
+    across(
+      .fns = ~case_when(
+        category == "point" ~ replace_na(., 0), category != "point" ~ .
+      )
     )
   )
 
@@ -1496,103 +1412,172 @@ bmp_costs_se <- temp_bmp_costs_rev %>%
     c(
       "BMP_Category",
       "BMP",
-      "capital_VT_se_rev",
-      "capital_NH_se_rev",
-      "operations_VT_se_rev",
-      "operations_NH_se_rev"
+      contains(c("capital_", "operations_")) & !contains("units") & 
+        contains("rev") & contains("_se")
+    )
+  ) %>%
+  rename(
+    category = BMP_Category,
+    bmp = BMP
+  ) %>%
+  rename_at(
+    vars(contains(c("capital_", "operations_"))), list( ~ gsub("_se_rev", "", .))
+  ) %>%
+  # Annualize capital costs based on planning horizon and interest rate
+  mutate(
+    across(
+      .cols = contains("capital_"), 
+      .fns = ~(
+        . * (
+          interest_rate * ((1 + interest_rate) ^ horizon) / (
+            ((1 + interest_rate) ^ horizon) - 1
+          )
+        )
+      )
+    )
+  ) %>%
+  mutate(
+    across(
+      .fns = ~case_when(
+        category == "point" ~ replace_na(., 0), category != "point" ~ .
+      )
     )
   )
-names(bmp_costs) <- c(
-  "category","bmp","capital_VT","capital_NH","operations_VT","operations_NH"
-)
-names(bmp_costs_se) <- c(
-  "category","bmp","capital_VT","capital_NH","operations_VT","operations_NH"
-)
-
-# Annualize capital costs based on planning horizon and interest rate
-bmp_costs[c(3:4)] <- bmp_costs[c(3:4)] *
-  (
-    interest_rate * ((1 + interest_rate) ^ horizon) / 
-      (((1 + interest_rate) ^ horizon) - 1)
-  )
-
-bmp_costs[is.na(bmp_costs)] <- 0
-
-bmp_costs_se[c(3:4)] <- bmp_costs_se[c(3:4)] *
-  (
-    interest_rate * ((1 + interest_rate) ^ horizon) / 
-      (((1 + interest_rate) ^ horizon) - 1)
-  )
-
-bmp_costs_se[is.na(bmp_costs_se)] <- 0
 
 ## Separate parameters for ag_capital_se and ag_operations_se and format costs data ####
+
+
 if(length(Ag_BMPs) > 0) {
   temp_bmp_costs_ag_se <- merge(
-  bmp_costs_se[
-    bmp_costs_se$category == "ag",
-    c("bmp", "capital_VT", "capital_NH", "operations_VT", "operations_NH")
-  ],
-  COMID_State
-) #*#
-temp_bmp_costs_ag_se$capital <-  with(
-  temp_bmp_costs_ag_se ,ifelse(State == "NH" ,capital_NH, capital_VT)
-) #*#
-temp_bmp_costs_ag_se$operations <-  with(
-  temp_bmp_costs_ag_se, ifelse(State == "NH", operations_NH, operations_VT) 
-) #*#
-temp_bmp_costs_ag_se <- temp_bmp_costs_ag_se[order(temp_bmp_costs_ag_se$comid),]
-temp_bmp_costs_ag_se$comid_form <- paste0("'", temp_bmp_costs_ag_se$comid, "'")
-
-bmp_costs_ag_capital_se <- reshape2::dcast(
-  temp_bmp_costs_ag_se[, c("comid", "comid_form", "bmp", "capital")], 
-  comid_form + comid ~ bmp,
-  value.var = "capital"
-)
-bmp_costs_ag_operations_se <- reshape2::dcast(
-  temp_bmp_costs_ag_se[, c("comid", "comid_form", "bmp", "operations")],
-  comid_form + comid ~ bmp,
-  value.var = "operations"
-)
-
-bmp_costs_ag_capital_rev_se <- bmp_costs_ag_capital_se[
-  order(bmp_costs_ag_capital_se$comid),
-]
-ag_costs_cap_dat_se <- bmp_costs_ag_capital_rev_se[
-  ,names(bmp_costs_ag_capital_rev_se) != "comid"
-]
-ag_costs_cap_dat_se <- ag_costs_cap_dat_se %>% select(comid_form, everything())
-
-bmp_costs_ag_operations_rev_se <- bmp_costs_ag_operations_se[
-  order(bmp_costs_ag_operations_se$comid),
-]
-ag_costs_op_dat_se <- bmp_costs_ag_operations_rev_se[ 
-  ,names(bmp_costs_ag_operations_rev_se) != "comid"
-]
-ag_costs_op_dat_se <- ag_costs_op_dat_se %>% select(comid_form, everything())
+    bmp_costs_se %>%
+      filter(category == "ag") %>%
+      select(
+        bmp, contains(c("capital", "operations"))
+      ),
+    COMID_State
+  )  %>%
+    mutate(
+      capital = my_key_fun(., "State", ~paste0("capital_", .x)),
+      operations = my_key_fun(., "State", ~paste0("operations_", .x))
+    ) %>%
+    arrange(comid) %>%
+    mutate(comid_form = paste0("'", comid, "'"))#*#
+  
+  if(
+    any(is.na(temp_bmp_costs_ag_se$capital)) | 
+    any(is.na(temp_bmp_costs_ag_se$operations))
+  ) {
+    stop(
+      paste0(
+        "Uncertainty information for ag ",
+        if(
+          any(is.na(temp_bmp_costs_ag_se$capital)) & 
+          any(is.na(temp_bmp_costs_ag_se$operations))
+        ) {paste("capital and operations ")} else if (
+          any(is.na(temp_bmp_costs_ag_se$capital))
+        ) {paste("capital ")} else {paste("operations ")},
+        "costs for ", 
+        paste(
+          temp_bmp_costs_ag_se %>% 
+            filter(is.na(capital) | is.na(operations)) %>% 
+            select(bmp) %>% 
+            unique() %>%
+            pull(), 
+          collapse = ", "
+        ),
+        " in ",
+        paste(
+          temp_bmp_costs_ag_se %>% 
+            filter(is.na(capital) | is.na(operations)) %>% 
+            select(State) %>% 
+            unique() %>%
+            pull(), 
+          collapse = ", "
+        ),
+        " not provided. Please ensure costs are available in `EQIPcosts_overyears.csv`"
+      )
+    )
+  }
+  bmp_costs_ag_capital_se <- reshape2::dcast(
+    temp_bmp_costs_ag_se[, c("comid", "comid_form", "bmp", "capital")], 
+    comid_form + comid ~ bmp,
+    value.var = "capital"
+  )
+  bmp_costs_ag_operations_se <- reshape2::dcast(
+    temp_bmp_costs_ag_se[, c("comid", "comid_form", "bmp", "operations")],
+    comid_form + comid ~ bmp,
+    value.var = "operations"
+  )
+  bmp_costs_ag_capital_rev_se <- bmp_costs_ag_capital_se[
+    order(bmp_costs_ag_capital$comid),
+  ]
+  ag_costs_cap_dat_se <- bmp_costs_ag_capital_rev_se[
+    ,names(bmp_costs_ag_capital_rev_se) != "comid"
+  ]
+  ag_costs_cap_dat_se <- ag_costs_cap_dat_se %>% select(comid_form, everything())
+  
+  bmp_costs_ag_operations_rev_se <- bmp_costs_ag_operations_se[
+    order(bmp_costs_ag_operations_se$comid),
+  ]
+  ag_costs_op_dat_se <- bmp_costs_ag_operations_rev_se[ 
+    ,names(bmp_costs_ag_operations_rev_se) != "comid"
+  ]
+  ag_costs_op_dat_se <- ag_costs_op_dat_se %>% select(comid_form, everything())
 }
+
 
 ## Format riparian costs ####
 if(length(RiparianBuffer_BMPs) > 0) {
   temp_bmp_costs_ripbuf_se <- merge(
-    bmp_costs_se[
-      bmp_costs_se$category == "ripbuf",
-      c("bmp", "capital_VT", "capital_NH", "operations_VT", "operations_NH")
-    ],
+    bmp_costs_se %>%
+      filter(category == "ripbuf") %>%
+      select(
+        bmp, contains(c("capital", "operations"))
+      ),
     COMID_State
-  ) #*#
-  temp_bmp_costs_ripbuf_se$capital <-  with(
-    temp_bmp_costs_ripbuf_se ,ifelse(State == "NH" ,capital_NH, capital_VT)
-  ) #*#
-  temp_bmp_costs_ripbuf_se$operations <-  with(
-    temp_bmp_costs_ripbuf_se, ifelse(State == "NH", operations_NH, operations_VT) 
-  ) #*#
-  temp_bmp_costs_ripbuf_se <- temp_bmp_costs_ripbuf_se[
-    order(temp_bmp_costs_ripbuf_se$comid),
-  ]
-  temp_bmp_costs_ripbuf_se$comid_form <- paste0(
-    "'", temp_bmp_costs_ripbuf_se$comid, "'"
-  )
+  ) %>%
+    mutate(
+      capital = my_key_fun(., "State", ~paste0("capital_", .x)),
+      operations = my_key_fun(., "State", ~paste0("operations_", .x))
+    ) %>%
+    arrange(comid) %>%
+    mutate(comid_form = paste0("'", comid, "'"))
+  
+  if(
+    any(is.na(temp_bmp_costs_ripbuf_se$capital)) | 
+    any(is.na(temp_bmp_costs_ripbuf_se$operations))
+  ) {
+    stop(
+      paste0(
+        "Uncertainty information for Riparian Buffer ",
+        if(
+          any(is.na(temp_bmp_costs_ripbuf_se$capital)) & 
+          any(is.na(temp_bmp_costs_ripbuf_se$operations))
+        ) {paste("capital and operations ")} else if (
+          any(is.na(temp_bmp_costs_ripbuf_se$capital))
+        ) {paste("capital ")} else {paste("operations ")},
+        "costs for ", 
+        paste(
+          temp_bmp_costs_ripbuf_se %>% 
+            filter(is.na(capital) | is.na(operations)) %>% 
+            select(bmp) %>% 
+            unique() %>%
+            pull(), 
+          collapse = ", "
+        ),
+        " in ",
+        paste(
+          temp_bmp_costs_ripbuf_se %>% 
+            filter(is.na(capital) | is.na(operations)) %>% 
+            select(State) %>% 
+            unique() %>%
+            pull(), 
+          collapse = ", "
+        ),
+        " not provided. Please ensure costs are available in `EQIPcosts_overyears.csv`"
+      )
+    )
+  }
   
   bmp_costs_ripbuf_capital_se <- reshape2::dcast(
     temp_bmp_costs_ripbuf_se[, c("comid", "comid_form", "bmp", "capital")], 
@@ -1609,7 +1594,7 @@ if(length(RiparianBuffer_BMPs) > 0) {
     order(bmp_costs_ripbuf_capital_se$comid),
   ]
   ripbuf_costs_cap_dat_se <- bmp_costs_ripbuf_capital_rev_se[
-    ,names(bmp_costs_ripbuf_capital_rev) != "comid"
+    ,names(bmp_costs_ripbuf_capital_rev_se) != "comid"
   ]
   ripbuf_costs_cap_dat_se <- ripbuf_costs_cap_dat_se %>% 
     select(comid_form, everything())
@@ -1621,7 +1606,9 @@ if(length(RiparianBuffer_BMPs) > 0) {
     ,names(bmp_costs_ripbuf_operations_rev_se) != "comid"
   ]
   ripbuf_costs_op_dat_se <- ripbuf_costs_op_dat_se %>% select(comid_form, everything())
+
 }
+
 ## ACRES data - choose ####
 
 temp_acre <- fread(paste0(InPath, "ACRE_HUC12_HRU_Summary.csv")) #*#
@@ -2711,7 +2698,7 @@ invisible(
           quote = F
         )
       } else {
-       write(
+        write(
           paste0(
             "\nparam riparianremoval_N", 
             i, 
@@ -2792,88 +2779,88 @@ invisible(
 
 if(length(Ag_BMPs) > 0) {
   if("TN" %in% user_specs_loadingtargets$TN_or_TP) {
-  cat(
-    "\nparam ag_effic_N_se : ",bmp_ag_vec," :=	", 
-    file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
-    sep="",
-    append = T
-  )
-  cat("\n", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), sep = "", append = T)
-  write.table(
-    ag_effic_dat_tn_se %>% select(comid_form, all_of(bmp_ag_vec_direct)), # selecting forces the order incase they are disordered in preprocessing code above
-    file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
-    append = T,
-    sep = "\t",
-    row.names = F,
-    col.names = F,
-    na = "",
-    quote = F
-  )
-  write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), append = T)
-}
-
-if("TP" %in% user_specs_loadingtargets$TN_or_TP) {
-  cat(
-    "\nparam ag_effic_P_se : ",bmp_ag_vec," :=	", 
-    file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
-    sep="", 
-    append = T
-  )
-  cat("\n", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), sep = "", append = T)
-  write.table(
-    ag_effic_dat_tp_se %>% select(comid_form, all_of(bmp_ag_vec_direct)),  # selecting forces the order incase they are disordered in preprocessing code above
-    file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
-    append = T,
-    sep = "\t",
-    row.names = F,
-    col.names = F,
-    na = "",
-    quote = F
-  )
-  write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), append = T)
-}
+    cat(
+      "\nparam ag_effic_N_se : ",bmp_ag_vec," :=	", 
+      file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
+      sep="",
+      append = T
+    )
+    cat("\n", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), sep = "", append = T)
+    write.table(
+      ag_effic_dat_tn_se %>% select(comid_form, all_of(bmp_ag_vec_direct)), # selecting forces the order incase they are disordered in preprocessing code above
+      file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
+      append = T,
+      sep = "\t",
+      row.names = F,
+      col.names = F,
+      na = "",
+      quote = F
+    )
+    write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), append = T)
+  }
+  
+  if("TP" %in% user_specs_loadingtargets$TN_or_TP) {
+    cat(
+      "\nparam ag_effic_P_se : ",bmp_ag_vec," :=	", 
+      file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
+      sep="", 
+      append = T
+    )
+    cat("\n", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), sep = "", append = T)
+    write.table(
+      ag_effic_dat_tp_se %>% select(comid_form, all_of(bmp_ag_vec_direct)),  # selecting forces the order incase they are disordered in preprocessing code above
+      file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
+      append = T,
+      sep = "\t",
+      row.names = F,
+      col.names = F,
+      na = "",
+      quote = F
+    )
+    write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), append = T)
+  }
 } else {
   if("TN" %in% user_specs_loadingtargets$TN_or_TP) {
-  cat(
-    "\nparam ag_effic_N_se : 'none' :=	", 
-    file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
-    sep="",
-    append = T
-  )
-  cat("\n", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), sep = "", append = T)
-  write.table(
-    unique(do.call("rbind", ag_bmp_dummy_tn)) %>% select(comid, none), # selecting forces the order incase they are disordered in preprocessing code above
-    file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
-    append = T,
-    sep = "\t",
-    row.names = F,
-    col.names = F,
-    na = "",
-    quote = F
-  )
-  write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), append = T)
-}
-
-if("TP" %in% user_specs_loadingtargets$TN_or_TP) {
-  cat(
-    "\nparam ag_effic_P_se : 'none' :=	", 
-    file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
-    sep="", 
-    append = T
-  )
-  cat("\n", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), sep = "", append = T)
-  write.table(
-    unique(do.call("rbind", ag_bmp_dummy_tp)) %>% select(comid, none),  # selecting forces the order incase they are disordered in preprocessing code above
-    file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
-    append = T,
-    sep = "\t",
-    row.names = F,
-    col.names = F,
-    na = "",
-    quote = F
-  )
-  write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), append = T)
-}
+    cat(
+      "\nparam ag_effic_N_se : 'none' :=	", 
+      file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
+      sep="",
+      append = T
+    )
+    cat("\n", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), sep = "", append = T)
+    write.table(
+      unique(do.call("rbind", ag_bmp_dummy_tn)) %>% select(comid, none), # selecting forces the order incase they are disordered in preprocessing code above
+      file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
+      append = T,
+      sep = "\t",
+      row.names = F,
+      col.names = F,
+      na = "",
+      quote = F
+    )
+    write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), append = T)
+  }
+  
+  if("TP" %in% user_specs_loadingtargets$TN_or_TP) {
+    cat(
+      "\nparam ag_effic_P_se : 'none' :=	", 
+      file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
+      sep="", 
+      append = T
+    )
+    cat("\n", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), sep = "", append = T)
+    write.table(
+      unique(do.call("rbind", ag_bmp_dummy_tp)) %>% select(comid, none),  # selecting forces the order incase they are disordered in preprocessing code above
+      file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
+      append = T,
+      sep = "\t",
+      row.names = F,
+      col.names = F,
+      na = "",
+      quote = F
+    )
+    write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), append = T)
+  }
 }
 
 if("TN" %in% user_specs_loadingtargets$TN_or_TP) {
@@ -2896,7 +2883,7 @@ if("TN" %in% user_specs_loadingtargets$TN_or_TP) {
       quote = F
     )
   } else {
-        cat(
+    cat(
       "\nparam urban_effic_N_se : 'none' :=	", 
       file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
       sep="", 
@@ -3009,7 +2996,7 @@ if(length(RiparianBuffer_BMPs) > 0) {
   )
   write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep=""), append = T)
 } else {
-cat(
+  cat(
     "\nparam ripbuf_costs_capital_se : 'none' :=	",
     file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
     sep = "", 
@@ -3077,100 +3064,100 @@ write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep=""), append = T)
 
 if(length(Ag_BMPs) > 0) {
   cat(
-  "\nparam ag_costs_capital_se : ",bmp_ag_vec," :=	",
-  file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
-  sep = "", 
-  append = T
-)
-cat(
-  "\n",
-  file= paste(OutPath, "STdata_uncertainty.dat", sep=""),
-  sep = "", 
-  append = T
-)
-write.table(
-  ag_costs_cap_dat_se %>% select(comid_form, all_of(bmp_ag_vec_direct)), # selecting forces the order incase they are disordered in preprocessing code above
-  file = paste(OutPath, "STdata_uncertainty.dat", sep=""), 
-  append = T,
-  sep = "\t",
-  row.names = F,
-  col.names = F,
-  na="",
-  quote = F
-)
-write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep=""), append = T)
-
-cat(
-  "\nparam ag_costs_operations_se : ",bmp_ag_vec," :=	",
-  file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
-  sep = "", 
-  append = T
-)
-cat(
-  "\n",
-  file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
-  sep = "", 
-  append = T
-)
-write.table(
-  ag_costs_op_dat_se %>% select(comid_form, all_of(bmp_ag_vec_direct)), # selecting forces the order incase they are disordered in preprocessing code above
-  file = paste(OutPath, "STdata_uncertainty.dat", sep=""), 
-  append = T,
-  sep = "\t",
-  row.names = F,
-  col.names = F,
-  na = "",
-  quote = F
-)
-write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep=""), append = T)
+    "\nparam ag_costs_capital_se : ",bmp_ag_vec," :=	",
+    file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
+    sep = "", 
+    append = T
+  )
+  cat(
+    "\n",
+    file= paste(OutPath, "STdata_uncertainty.dat", sep=""),
+    sep = "", 
+    append = T
+  )
+  write.table(
+    ag_costs_cap_dat_se %>% select(comid_form, all_of(bmp_ag_vec_direct)), # selecting forces the order incase they are disordered in preprocessing code above
+    file = paste(OutPath, "STdata_uncertainty.dat", sep=""), 
+    append = T,
+    sep = "\t",
+    row.names = F,
+    col.names = F,
+    na="",
+    quote = F
+  )
+  write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep=""), append = T)
+  
+  cat(
+    "\nparam ag_costs_operations_se : ",bmp_ag_vec," :=	",
+    file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
+    sep = "", 
+    append = T
+  )
+  cat(
+    "\n",
+    file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
+    sep = "", 
+    append = T
+  )
+  write.table(
+    ag_costs_op_dat_se %>% select(comid_form, all_of(bmp_ag_vec_direct)), # selecting forces the order incase they are disordered in preprocessing code above
+    file = paste(OutPath, "STdata_uncertainty.dat", sep=""), 
+    append = T,
+    sep = "\t",
+    row.names = F,
+    col.names = F,
+    na = "",
+    quote = F
+  )
+  write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep=""), append = T)
 } else {
   cat(
-  "\nparam ag_costs_capital_se : 'none' :=	",
-  file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
-  sep = "", 
-  append = T
-)
-cat(
-  "\n",
-  file= paste(OutPath, "STdata_uncertainty.dat", sep=""),
-  sep = "", 
-  append = T
-)
-write.table(
-  ag_bmp_dummy %>% select(comid, none), # selecting forces the order incase they are disordered in preprocessing code above
-  file = paste(OutPath, "STdata_uncertainty.dat", sep=""), 
-  append = T,
-  sep = "\t",
-  row.names = F,
-  col.names = F,
-  na="",
-  quote = F
-)
-write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep=""), append = T)
-
-cat(
-  "\nparam ag_costs_operations_se : 'none' :=	",
-  file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
-  sep = "", 
-  append = T
-)
-cat(
-  "\n",
-  file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
-  sep = "", 
-  append = T
-)
-write.table(
-  ag_bmp_dummy %>% select(comid, none), # selecting forces the order incase they are disordered in preprocessing code above
-  file = paste(OutPath, "STdata_uncertainty.dat", sep=""), 
-  append = T,
-  sep = "\t",
-  row.names = F,
-  col.names = F,
-  na = "",
-  quote = F
-)
-write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep=""), append = T)
+    "\nparam ag_costs_capital_se : 'none' :=	",
+    file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
+    sep = "", 
+    append = T
+  )
+  cat(
+    "\n",
+    file= paste(OutPath, "STdata_uncertainty.dat", sep=""),
+    sep = "", 
+    append = T
+  )
+  write.table(
+    ag_bmp_dummy %>% select(comid, none), # selecting forces the order incase they are disordered in preprocessing code above
+    file = paste(OutPath, "STdata_uncertainty.dat", sep=""), 
+    append = T,
+    sep = "\t",
+    row.names = F,
+    col.names = F,
+    na="",
+    quote = F
+  )
+  write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep=""), append = T)
+  
+  cat(
+    "\nparam ag_costs_operations_se : 'none' :=	",
+    file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
+    sep = "", 
+    append = T
+  )
+  cat(
+    "\n",
+    file = paste(OutPath, "STdata_uncertainty.dat", sep=""),
+    sep = "", 
+    append = T
+  )
+  write.table(
+    ag_bmp_dummy %>% select(comid, none), # selecting forces the order incase they are disordered in preprocessing code above
+    file = paste(OutPath, "STdata_uncertainty.dat", sep=""), 
+    append = T,
+    sep = "\t",
+    row.names = F,
+    col.names = F,
+    na = "",
+    quote = F
+  )
+  write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep=""), append = T)
 }
 
 
@@ -3208,7 +3195,7 @@ if(length(Urban_BMPs) > 0) {
     quote = F
   )
 } else {
-    write.table(
+  write.table(
     urban_bmp_dummy,
     file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), 
     append = T,

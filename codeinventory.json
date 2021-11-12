@@ -289,6 +289,13 @@
     "EPA",
     "opensource"
   ],
+  "name": "Optimization_ServerFunctions_Postprocessor.R"
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/R/Optimization_ServerFunctions_Postprocessor.R",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
   "name": "Optimization_UI_Postprocessor.R"
   "URL":"https://github.com/USEPA/RBEROST/blob/master/R/Optimization_UI_Postprocessor.R",
   "usageType": "openSource",

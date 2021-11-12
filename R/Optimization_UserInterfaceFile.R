@@ -37,7 +37,7 @@
 ### DOE, or ORAU/ORISE.                                    ###       
 ##############################################################
 
-# This file is NOT intended to be run by itself. It is sourced through 02_Optimization_Postprocessing_RunShiny.R along with Optimization_PostprocessingservereFile.R to run the shiny app.
+# This file is NOT intended to be run by itself. It is sourced through 02_Optimization_RunShiny.R (which in turn is sourced through RunRBEROST.Rmd) along with Optimization_ServerFile.R to run the shiny app.
 # Lines marked #*# may be changed by the user.
 
 # The components of the User Interface are roughly organized as such:
@@ -205,7 +205,7 @@ ui <- fluidPage(
       ),
       
       conditionalPanel(
-        condition = "input.steps == 'Preprocessing Step' | input.steps == 'Postprocessing Step' ", 
+        condition = "input.steps == 'Preprocessing Step'", 
         fileInput( 
           inputId = "streambank_in",
           label = "Choose Streambank File",
@@ -312,24 +312,9 @@ ui <- fluidPage(
       conditionalPanel(
         condition = "input.steps == 'Preprocessing Step' | input.steps == 'Postprocessing Step'", 
         fileInput(
-          inputId = "streamcat_crop_file_vt", 
-          label = "Choose Vermont Cropland Streamcat File", 
-          multiple = FALSE, 
-          accept = c(
-            "text/csv",
-            "text/comma-separated-values,text/plain",
-            ".csv"
-          )
-        ),
-        tags$hr()
-      ),
-      
-      conditionalPanel(
-        condition = "input.steps == 'Preprocessing Step' | input.steps == 'Postprocessing Step'", 
-        fileInput(
-          inputId = "streamcat_crop_file_nh", 
-          label = "Choose New Hampshire Cropland Streamcat File", 
-          multiple = FALSE, 
+          inputId = "streamcat_crop_files_all", 
+          label = "Choose State Cropland Streamcat Files", 
+          multiple = TRUE, 
           accept = c(
             "text/csv",
             "text/comma-separated-values,text/plain",
@@ -378,6 +363,7 @@ ui <- fluidPage(
       
       conditionalPanel(
         condition = "input.steps == 'Postprocessing Step'", 
+                p(em("Important: Selecting 'Preview Uploads' or 'View NEOS Results' before all uploads have completed may produce unexpected results. Previews can be found under the 'File Preview' tab, and generated reports can be found under the 'View Results' tab.")),
         actionButton("preview", label = "Preview Uploads"),
         actionButton("ViewReport", label = "View NEOS Results")
       )
