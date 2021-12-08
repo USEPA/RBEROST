@@ -842,7 +842,15 @@ temp_ag_effic_fert_man_cast_tp <- reshape2::dcast(
 ) #*#
 
 # Read in efficiency data for ACRE database BMPs
-temp_acre <- fread(paste0(InPath, "ACRE_HUC12_HRU_Summary.csv")) #*#
+temp_acre <- if(AgBMPcomparison == "No Practice") {
+  fread(paste0(InPath, "ACRE_HUC12_HRU_Summary_compareNoPractice.csv"))
+} else if(AgBMPcomparison == "Baseline") {
+  fread(paste0(InPath, "ACRE_HUC12_HRU_Summary_compareBaseline.csv"))
+} else {
+  stop(
+    'AgBMPcomparison must be set to either "No Practice" or "Baseline", quotation marks included.'
+  )
+}#*#
 temp_acre$bmp <- with(
   temp_acre,
   ifelse(
@@ -875,7 +883,15 @@ temp_acre$HUC8_Rev <- str_pad(temp_acre$HUC8, width=8, pad="0")
 temp_acre_cast_tn <- reshape2::dcast(
   temp_acre, HUC8_Rev+HUC10_Rev+HUC12_Rev ~ bmp, value.var = "MeanTN_Effic"
 ) %>% 
-  select(-Baseline) %>%
+  {
+    if(AgBMPcomparison == "Baseline") {select(., -"No Practice")} else if(
+      AgBMPcomparison == "No Practice"
+    ) {select(., -"Baseline")} else {
+      stop(
+        'AgBMPcomparison must be set to either "No Practice" or "Baseline", quotation marks included.'
+      )
+    } 
+  }%>%
   rename(HUC8 = HUC8_Rev, HUC10 = HUC10_Rev, HUC12 = HUC12_Rev)
 
 temp_acre_cast_tn_HUC8 <- temp_acre_cast_tn %>%
@@ -956,7 +972,15 @@ acre_reaches_tn <- temp_acre_reaches_tn %>%
 temp_acre_cast_tp <- reshape2::dcast(
   temp_acre, HUC8_Rev+HUC10_Rev+HUC12_Rev ~ bmp, value.var = "MeanTP_Effic"
 ) %>% 
-  select(-Baseline) %>%
+  {
+    if(AgBMPcomparison == "Baseline") {select(., -"No Practice")} else if(
+      AgBMPcomparison == "No Practice"
+    ) {select(., -"Baseline")} else {
+      stop(
+        'AgBMPcomparison must be set to either "No Practice" or "Baseline", quotation marks included.'
+      )
+    } 
+  }%>%
   rename(HUC8 = HUC8_Rev, HUC10 = HUC10_Rev, HUC12 = HUC12_Rev)
 
 temp_acre_cast_tp_HUC8 <- temp_acre_cast_tp %>%
@@ -1052,34 +1076,34 @@ ag_effic_bycomid_tp <- add_column(
 
 ### Point Source BMPs
 if("point" %in% bmp_costs$category) {
-temp_point_effic <- fread(
-  paste(InPath, "WWTP_RemovalEffic.csv", sep = ""), 
-  col.names = c("BMP_Category", "bmp", "N_Efficiency", "P_Efficiency")
-) #*#
-
-point_effic <- merge(
-  temp_point_effic[
-    temp_point_effic$bmp %in% 
-      user_specs_BMPs$BMP[user_specs_BMPs$BMP_Selection=="X"],
-  ],
-  point_comid,
-  by = c("bmp"),
-  all.y = TRUE
-) %>%
-  mutate(across(contains("Efficiency"), ~ replace_na(., -999))) # By setting unknowns to -999, the model will not implement BMPs that have missing data
-
-point_effic_bycomid_tn <- point_effic %>% 
-  select(category = BMP_Category, comid, effic = N_Efficiency)
-
-point_effic_bycomid_tp <- point_effic %>% 
-  select(category = BMP_Category, comid, effic = P_Efficiency)
+  temp_point_effic <- fread(
+    paste(InPath, "WWTP_RemovalEffic.csv", sep = ""), 
+    col.names = c("BMP_Category", "bmp", "N_Efficiency", "P_Efficiency")
+  ) #*#
+  
+  point_effic <- merge(
+    temp_point_effic[
+      temp_point_effic$bmp %in% 
+        user_specs_BMPs$BMP[user_specs_BMPs$BMP_Selection=="X"],
+    ],
+    point_comid,
+    by = c("bmp"),
+    all.y = TRUE
+  ) %>%
+    mutate(across(contains("Efficiency"), ~ replace_na(., -999))) # By setting unknowns to -999, the model will not implement BMPs that have missing data
+  
+  point_effic_bycomid_tn <- point_effic %>% 
+    select(category = BMP_Category, comid, effic = N_Efficiency)
+  
+  point_effic_bycomid_tp <- point_effic %>% 
+    select(category = BMP_Category, comid, effic = P_Efficiency)
 } else {
   point_effic_bycomid_tn <- data.frame(
     BMP_Category = "point", comid = NA, effic = NA
-    )
+  )
   point_effic_bycomid_tp <- data.frame(
     BMP_Category = "point", comid = NA, effic = NA
-    )
+  )
 }
 
 

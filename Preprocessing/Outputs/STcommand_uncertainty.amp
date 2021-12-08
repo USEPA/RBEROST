@@ -21,7 +21,7 @@ solve;
 for {b in Bootstraps} {
 
 repeat { 
-let other_loads_N1_rev[b] := Normal(other_loads_N1, 40864.2003404094); 
+let other_loads_N1_rev[b] := Normal(other_loads_N1, 40864.2003203085); 
  } until other_loads_N1_rev[b] >= 0;
 repeat { 
 let other_loads_P1_rev[b] := Normal(other_loads_P1, 5.79164626654423); 

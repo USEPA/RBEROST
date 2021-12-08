@@ -1606,12 +1606,20 @@ if(length(RiparianBuffer_BMPs) > 0) {
     ,names(bmp_costs_ripbuf_operations_rev_se) != "comid"
   ]
   ripbuf_costs_op_dat_se <- ripbuf_costs_op_dat_se %>% select(comid_form, everything())
-
+  
 }
 
 ## ACRES data - choose ####
 
-temp_acre <- fread(paste0(InPath, "ACRE_HUC12_HRU_Summary.csv")) #*#
+temp_acre <- if(AgBMPcomparison == "No Practice") {
+  fread(paste0(InPath, "ACRE_HUC12_HRU_Summary_compareNoPractice.csv"))
+} else if(AgBMPcomparison == "Baseline") {
+  fread(paste0(InPath, "ACRE_HUC12_HRU_Summary_compareBaseline.csv"))
+} else {
+  stop(
+    'AgBMPcomparison must be set to either "No Practice" or "Baseline", quotation marks included.'
+  )
+}#*#
 
 # Read in efficiency data for ACRE database BMPs
 temp_acre$bmp <- with(
@@ -1646,7 +1654,15 @@ temp_acre$HUC8_Rev <- str_pad(temp_acre$HUC8, width=8, pad="0")
 temp_acre_cast_tn_se <- reshape2::dcast(
   temp_acre, HUC8_Rev+HUC10_Rev+HUC12_Rev ~ bmp, value.var = "MeanTN_Effic_se"
 ) %>% 
-  select(-Baseline) %>%
+  {
+    if(AgBMPcomparison == "Baseline") {select(., -"No Practice")} else if(
+      AgBMPcomparison == "No Practice"
+    ) {select(., -"Baseline")} else {
+      stop(
+        'AgBMPcomparison must be set to either "No Practice" or "Baseline", quotation marks included.'
+      )
+    } 
+  }%>%
   rename(HUC8 = HUC8_Rev, HUC10 = HUC10_Rev, HUC12 = HUC12_Rev)
 
 temp_acre_cast_tn_HUC8_se <- temp_acre_cast_tn_se %>%
@@ -1719,7 +1735,15 @@ acre_reaches_tn_se <- temp_acre_reaches_tn_se %>%
 temp_acre_cast_tp_se <- reshape2::dcast(
   temp_acre, HUC8_Rev+HUC10_Rev+HUC12_Rev ~ bmp, value.var = "MeanTP_Effic_se"
 ) %>% 
-  select(-Baseline) %>%
+  {
+    if(AgBMPcomparison == "Baseline") {select(., -"No Practice")} else if(
+      AgBMPcomparison == "No Practice"
+    ) {select(., -"Baseline")} else {
+      stop(
+        'AgBMPcomparison must be set to either "No Practice" or "Baseline", quotation marks included.'
+      )
+    }
+  }%>%
   rename(HUC8 = HUC8_Rev, HUC10 = HUC10_Rev, HUC12 = HUC12_Rev)
 
 temp_acre_cast_tp_HUC8_se <- temp_acre_cast_tp_se %>%

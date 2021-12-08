@@ -50,6 +50,9 @@ horizon <- 15
 # This variable represents to expected interest rate. Default is 0.03, or 3%.
 interest_rate <- 0.03
 
+# This variable lets the user decide if they wish to consider agricultural BMP efficiencies of practices versus "No Practice" (a default of no conservation practices) or "Baseline" (a default of practices currently in place, and implementing a BMP will remove practices currently in place).
+AgBMPcomparison <- "No Practice"
+
 # This variable decides if you will run RBEROST with or without uncertainty. It can be TRUE or FALSE. Running with uncertainty takes longer than running without.
 IncludeUncertainty <- TRUE
 

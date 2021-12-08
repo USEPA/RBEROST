@@ -64,8 +64,15 @@
     "EPA",
     "opensource"
   ],
-  "name": "ACRE_HUC12_HRU_Summary.csv",
-  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/ACRE_HUC12_HRU_Summary.csv",
+  "name": "ACRE_HUC12_HRU_Summary_compareBasline.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/ACRE_HUC12_HRU_Summary_compareBasline.csv",
+  "usageType": "openSource",
+  "tags": [
+    "EPA",
+    "opensource"
+  ],
+  "name": "ACRE_HUC12_HRU_Summary_compareNoPractice.csv",
+  "URL":"https://github.com/USEPA/RBEROST/blob/master/Preprocessing/Inputs/ACRE_HUC12_HRU_Summary_compareNoPractice.csv",
   "usageType": "openSource",
   "tags": [
     "EPA",
