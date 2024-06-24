@@ -1073,7 +1073,6 @@ ag_effic_bycomid_tp <- add_column(
   select(comid, all_of(Ag_BMPs)) %>%
   mutate(across(all_of(Ag_BMPs), ~ replace_na(., -999))) # By setting unknowns to -999, the model will not implement BMPs that have missing data.
 
-
 ### Point Source BMPs
 if("point" %in% bmp_costs$category) {
   temp_point_effic <- fread(
@@ -1090,7 +1089,7 @@ if("point" %in% bmp_costs$category) {
     by = c("bmp"),
     all.y = TRUE
   ) %>%
-    mutate(across(contains("Efficiency"), ~ replace_na(., -999))) # By setting unknowns to -999, the model will not implement BMPs that have missing data
+    mutate(across(contains("Efficiency"), ~ replace_na(as.numeric(.), -999))) # By setting unknowns to -999, the model will not implement BMPs that have missing data
   
   point_effic_bycomid_tn <- point_effic %>% 
     select(category = BMP_Category, comid, effic = N_Efficiency)
