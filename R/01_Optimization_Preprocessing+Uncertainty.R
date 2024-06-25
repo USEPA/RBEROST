@@ -3234,7 +3234,8 @@ write( ";", file = paste(OutPath, "STdata_uncertainty.dat", sep = ""), append = 
 
 # Write Model Script ####
 
-orig.mod <- read_table(paste(OutPath, "STmodel.mod", sep=""), col_types = "c")
+#*# SE: resolves parsing error from original code (5-7-24)
+orig.mod <- as.data.frame(readLines(paste(OutPath, "STmodel.mod", sep="")))
 
 write.table(
   orig.mod, # selecting forces the order incase they are disordered in preprocessing code above
@@ -3554,3 +3555,4 @@ print(
     Sys.time()
   )
 )
+
